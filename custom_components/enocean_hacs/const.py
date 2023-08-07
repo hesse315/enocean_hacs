@@ -1,9 +1,22 @@
-"""Constants for integration_blueprint."""
-from logging import Logger, getLogger
+"""Constants for the ENOcean integration."""
+import logging
 
-LOGGER: Logger = getLogger(__package__)
+from homeassistant.const import Platform
 
-NAME = "Integration blueprint"
-DOMAIN = "integration_blueprint"
-VERSION = "0.0.0"
-ATTRIBUTION = "Data provided by http://jsonplaceholder.typicode.com/"
+DOMAIN = "enocean_hacs"
+DATA_ENOCEAN = "enocean"
+ENOCEAN_DONGLE = "dongle"
+
+ERROR_INVALID_DONGLE_PATH = "invalid_dongle_path"
+
+SIGNAL_RECEIVE_MESSAGE = "enocean_hacs.receive_message"
+SIGNAL_SEND_MESSAGE = "enocean_hacs.send_message"
+
+LOGGER = logging.getLogger(__package__)
+
+PLATFORMS = [
+    Platform.LIGHT,
+    Platform.BINARY_SENSOR,
+    Platform.SENSOR,
+    Platform.SWITCH,
+]

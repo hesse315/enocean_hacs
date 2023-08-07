@@ -1,55 +1,55 @@
-"""Custom integration to integrate integration_blueprint with Home Assistant.
+"""Support for EnOcean devices."""
+import voluptuous as vol
 
-For more details about this integration, please refer to
-https://github.com/ludeeus/integration_blueprint
-"""
-from __future__ import annotations
-
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, Platform
+from homeassistant.config_entries import SOURCE_IMPORT, ConfigEntry
+from homeassistant.const import CONF_DEVICE
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
+import homeassistant.helpers.config_validation as cv
+from homeassistant.helpers.typing import ConfigType
 
-from .api import IntegrationBlueprintApiClient
-from .const import DOMAIN
-from .coordinator import BlueprintDataUpdateCoordinator
+from .const import DATA_ENOCEAN, DOMAIN, ENOCEAN_DONGLE
+from .dongle import EnOceanDongle
 
-PLATFORMS: list[Platform] = [
-    Platform.SENSOR,
-    Platform.BINARY_SENSOR,
-    Platform.SWITCH,
-]
+CONFIG_SCHEMA = vol.Schema(
+    {DOMAIN: vol.Schema({vol.Required(CONF_DEVICE): cv.string})}, extra=vol.ALLOW_EXTRA
+)
 
 
-# https://developers.home-assistant.io/docs/config_entries_index/#setting-up-an-entry
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up this integration using UI."""
-    hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN][entry.entry_id] = coordinator = BlueprintDataUpdateCoordinator(
-        hass=hass,
-        client=IntegrationBlueprintApiClient(
-            username=entry.data[CONF_USERNAME],
-            password=entry.data[CONF_PASSWORD],
-            session=async_get_clientsession(hass),
-        ),
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Set up the EnOcean component."""
+    # support for text-based configuration (legacy)
+    if DOMAIN not in config:
+        return True
+
+    if hass.config_entries.async_entries(DOMAIN):
+        # We can only have one dongle. If there is already one in the config,
+        # there is no need to import the yaml based config.
+        return True
+
+    hass.async_create_task(
+        hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": SOURCE_IMPORT}, data=config[DOMAIN]
+        )
     )
-    # https://developers.home-assistant.io/docs/integration_fetching_data#coordinated-single-api-poll-for-data-for-all-entities
-    await coordinator.async_config_entry_first_refresh()
-
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    entry.async_on_unload(entry.add_update_listener(async_reload_entry))
 
     return True
 
 
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Handle removal of an entry."""
-    if unloaded := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
-        hass.data[DOMAIN].pop(entry.entry_id)
-    return unloaded
+async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
+    """Set up an EnOcean dongle for the given entry."""
+    enocean_data = hass.data.setdefault(DATA_ENOCEAN, {})
+    usb_dongle = EnOceanDongle(hass, config_entry.data[CONF_DEVICE])
+    await usb_dongle.async_setup()
+    enocean_data[ENOCEAN_DONGLE] = usb_dongle
+
+    return True
 
 
-async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Reload config entry."""
-    await async_unload_entry(hass, entry)
-    await async_setup_entry(hass, entry)
+async def async_unload_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
+    """Unload ENOcean config entry."""
+
+    enocean_dongle = hass.data[DATA_ENOCEAN][ENOCEAN_DONGLE]
+    enocean_dongle.unload()
+    hass.data.pop(DATA_ENOCEAN)
+
+    return True

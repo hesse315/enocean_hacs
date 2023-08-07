@@ -1,80 +1,95 @@
-"""Adds config flow for Blueprint."""
-from __future__ import annotations
+"""Config flows for the ENOcean integration."""
 
 import voluptuous as vol
+
 from homeassistant import config_entries
-from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
-from homeassistant.helpers import selector
-from homeassistant.helpers.aiohttp_client import async_create_clientsession
+from homeassistant.const import CONF_DEVICE
 
-from .api import (
-    IntegrationBlueprintApiClient,
-    IntegrationBlueprintApiClientAuthenticationError,
-    IntegrationBlueprintApiClientCommunicationError,
-    IntegrationBlueprintApiClientError,
-)
-from .const import DOMAIN, LOGGER
+from .const import DOMAIN, ERROR_INVALID_DONGLE_PATH, LOGGER
+from . import dongle
 
 
-class BlueprintFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
-    """Config flow for Blueprint."""
+class EnOceanHacsFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+    """Handle the enOcean config flows."""
 
     VERSION = 1
+    MANUAL_PATH_VALUE = "Custom path"
 
-    async def async_step_user(
-        self,
-        user_input: dict | None = None,
-    ) -> config_entries.FlowResult:
-        """Handle a flow initialized by the user."""
-        _errors = {}
+    def __init__(self) -> None:
+        """Initialize the EnOcean config flow."""
+        self.dongle_path = None
+        self.discovery_info = None
+
+    async def async_step_import(self, data=None):
+        """Import a yaml configuration."""
+
+        if not await self.validate_enocean_conf(data):
+            LOGGER.warning(
+                "Cannot import yaml configuration: %s is not a valid dongle path",
+                data[CONF_DEVICE],
+            )
+            return self.async_abort(reason="invalid_dongle_path")
+
+        return self.create_enocean_entry(data)
+
+    async def async_step_user(self, user_input=None):
+        """Handle an EnOcean config flow start."""
+        if self._async_current_entries():
+            return self.async_abort(reason="single_instance_allowed")
+
+        return await self.async_step_detect()
+
+    async def async_step_detect(self, user_input=None):
+        """Propose a list of detected dongles.
+        first step in integration configuration
+        """
+        errors = {}
         if user_input is not None:
-            try:
-                await self._test_credentials(
-                    username=user_input[CONF_USERNAME],
-                    password=user_input[CONF_PASSWORD],
-                )
-            except IntegrationBlueprintApiClientAuthenticationError as exception:
-                LOGGER.warning(exception)
-                _errors["base"] = "auth"
-            except IntegrationBlueprintApiClientCommunicationError as exception:
-                LOGGER.error(exception)
-                _errors["base"] = "connection"
-            except IntegrationBlueprintApiClientError as exception:
-                LOGGER.exception(exception)
-                _errors["base"] = "unknown"
-            else:
-                return self.async_create_entry(
-                    title=user_input[CONF_USERNAME],
-                    data=user_input,
-                )
+            if user_input[CONF_DEVICE] == self.MANUAL_PATH_VALUE:
+                return await self.async_step_manual(None)
+            if await self.validate_enocean_conf(user_input):
+                return self.create_enocean_entry(user_input)
+            errors = {CONF_DEVICE: ERROR_INVALID_DONGLE_PATH}
+
+        # fill list with serial devices
+        bridges = await self.hass.async_add_executor_job(dongle.detect)
+        if len(bridges) == 0:
+            return await self.async_step_manual(user_input)
+        bridges.append(self.MANUAL_PATH_VALUE)
+
+        # ask user
+        return self.async_show_form(
+            step_id="detect",
+            data_schema=vol.Schema({vol.Required(CONF_DEVICE): vol.In(bridges)}),
+            errors=errors,
+        )
+
+    async def async_step_manual(self, user_input=None):
+        """Request manual USB dongle path."""
+        default_value = None
+        errors = {}
+        if user_input is not None:
+            if await self.validate_enocean_conf(user_input):
+                return self.create_enocean_entry(user_input)
+            default_value = user_input[CONF_DEVICE]
+            errors = {CONF_DEVICE: ERROR_INVALID_DONGLE_PATH}
 
         return self.async_show_form(
-            step_id="user",
+            step_id="manual",
             data_schema=vol.Schema(
-                {
-                    vol.Required(
-                        CONF_USERNAME,
-                        default=(user_input or {}).get(CONF_USERNAME),
-                    ): selector.TextSelector(
-                        selector.TextSelectorConfig(
-                            type=selector.TextSelectorType.TEXT
-                        ),
-                    ),
-                    vol.Required(CONF_PASSWORD): selector.TextSelector(
-                        selector.TextSelectorConfig(
-                            type=selector.TextSelectorType.PASSWORD
-                        ),
-                    ),
-                }
+                {vol.Required(CONF_DEVICE, default=default_value): str}
             ),
-            errors=_errors,
+            errors=errors,
         )
 
-    async def _test_credentials(self, username: str, password: str) -> None:
-        """Validate credentials."""
-        client = IntegrationBlueprintApiClient(
-            username=username,
-            password=password,
-            session=async_create_clientsession(self.hass),
+    async def validate_enocean_conf(self, user_input) -> bool:
+        """Return True if the user_input contains a valid dongle path."""
+        dongle_path = user_input[CONF_DEVICE]
+        path_is_valid = await self.hass.async_add_executor_job(
+            dongle.validate_path, dongle_path
         )
-        await client.async_get_data()
+        return path_is_valid
+
+    def create_enocean_entry(self, user_input):
+        """Create an entry for the provided configuration."""
+        return self.async_create_entry(title="EnOcean HACS", data=user_input)

@@ -1,12 +1,15 @@
 {
-  "domain": "enocean",
-  "name": "EnOcean",
+  "domain": "enocean_hacs",
+  "name": "EnOcean HACS",
   "codeowners": [
     "@hesse315"
+  ],
+  "requirements": [
+    "enocean @ git+https://github.com/hesse315/enocean@ha_dev"
   ],
   "config_flow": true,
   "documentation": "https://github.com/hesse315/enocean_hacs",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/hesse315/enocean_hacs/issues",
-  "version": "0.0.0"
+  "version": "0.0.2"
 }
