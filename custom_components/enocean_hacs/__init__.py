@@ -7,8 +7,10 @@ from homeassistant.core import HomeAssistant
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
-from .const import DATA_ENOCEAN, DOMAIN, ENOCEAN_DONGLE
+from .const import DATA_ENOCEAN, DOMAIN, ENOCEAN_DONGLE, LOGGER
 from .dongle import EnOceanDongle
+
+
 
 CONFIG_SCHEMA = vol.Schema(
     {DOMAIN: vol.Schema({vol.Required(CONF_DEVICE): cv.string})}, extra=vol.ALLOW_EXTRA
@@ -19,13 +21,16 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Set up the EnOcean component."""
     # support for text-based configuration (legacy)
     if DOMAIN not in config:
+        LOGGER.debug(f"{DOMAIN} not in config")
         return True
 
     if hass.config_entries.async_entries(DOMAIN):
         # We can only have one dongle. If there is already one in the config,
         # there is no need to import the yaml based config.
+        LOGGER.debug("dongle already there")
         return True
 
+    LOGGER.debug("start hass.config_entries.flow.async_init")
     hass.async_create_task(
         hass.config_entries.flow.async_init(
             DOMAIN, context={"source": SOURCE_IMPORT}, data=config[DOMAIN]

@@ -2,60 +2,38 @@
 
 import voluptuous as vol
 
-import homeassistant.helpers.config_validation as cv
 from homeassistant import config_entries
-from homeassistant.const import CONF_DEVICE, CONF_PATH
+from homeassistant.const import CONF_DEVICE
 
 from .const import DOMAIN, ERROR_INVALID_DONGLE_PATH, LOGGER
 from . import dongle
 
 
-class VolEnoceanId():
-    """"voluptuos check if eid is between 0x00000001 and 0xFFFFFFFF"""
-
-    def __call__(self, enoid):
-        try:
-            enoid = f"{int(enoid,16):08x}"
-            if not 0x0 < enoid <= 0xffffffff:
-                raise vol.Invalid('enocean id has to be in range 0x00000001 and 0xFFFFFFFF')
-        except ValueError as err:
-            raise vol.Invalid('expected id as 4 byte hex') from err
-
-        return enoid
-
-    def __repr__(self):
-        return 'EnocenId()'
-
-
-
-DONGLE_SCHEMA = vol.Schema(
-    {vol.Required(CONF_PATH): cv.string}
-)
-
-DEVICE_SCHEMA = vol.Schema(
-    {
-        vol.Required("enoid"): VolEnoceanId(),
-        "manufacturer": cv.string,
-        "model": cv.string,
-        "eep":  cv.string,
-        "eep_tx": [],
-    }
-)
-
-
-class EnOceanHacsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Handle the EnOcean HACS config flows."""
+class EnOceanHacsFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+    """Handle the enOcean config flows."""
 
     VERSION = 1
     MANUAL_PATH_VALUE = "Custom path"
 
+    def __init__(self) -> None:
+        """Initialize the EnOcean config flow."""
+        self.dongle_path = None
+        self.discovery_info = None
+
+    async def async_step_import(self, data=None):
+        """Import a yaml configuration."""
+
+        if not await self.validate_enocean_conf(data):
+            LOGGER.warning(
+                "Cannot import yaml configuration: %s is not a valid dongle path",
+                data[CONF_DEVICE],
+            )
+            return self.async_abort(reason="invalid_dongle_path")
+
+        return self.create_enocean_entry(data)
+
     async def async_step_user(self, user_input=None):
         """Handle an EnOcean config flow start."""
-        LOGGER.debug('config flow: start step user')
-
-        LOGGER.debug('config flow: start step user')
-        LOGGER.debug(str(self._async_current_entries()))
-
         if self._async_current_entries():
             return self.async_abort(reason="single_instance_allowed")
 
@@ -65,7 +43,6 @@ class EnOceanHacsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Propose a list of detected dongles.
         first step in integration configuration
         """
-        LOGGER.debug('config flow: detetc')
         errors = {}
         if user_input is not None:
             if user_input[CONF_DEVICE] == self.MANUAL_PATH_VALUE:

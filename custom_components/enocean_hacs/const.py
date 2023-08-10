@@ -12,11 +12,14 @@ ERROR_INVALID_DONGLE_PATH = "invalid_dongle_path"
 SIGNAL_RECEIVE_MESSAGE = "enocean_hacs.receive_message"
 SIGNAL_SEND_MESSAGE = "enocean_hacs.send_message"
 
+CONF_EEP = 'eep'
+CONF_MANUFACTURER = 'manufacturer'
+CONF_DEVICE_TYPE = 'type'
+DEFAULT_MANUFACTURER = 'enocean'
+
+
 LOGGER = logging.getLogger(__package__)
 
 PLATFORMS = [
-    Platform.LIGHT,
-    Platform.BINARY_SENSOR,
     Platform.SENSOR,
-    Platform.SWITCH,
 ]

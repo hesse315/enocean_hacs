@@ -8,9 +8,11 @@ from os.path import basename, normpath
 
 from enocean.communicators import SerialCommunicator
 from enocean.protocol.packet import RadioPacket
+from enocean.utils import from_hex_string
 import serial
 
 from homeassistant.helpers.dispatcher import async_dispatcher_connect, dispatcher_send
+from homeassistant.helpers import device_registry as dr
 
 from .const import SIGNAL_RECEIVE_MESSAGE, SIGNAL_SEND_MESSAGE
 
@@ -34,6 +36,16 @@ class EnOceanDongle:
         self.identifier = basename(normpath(serial_path))
         self.hass = hass
         self.dispatcher_disconnect_handle = None
+
+        device_registry = dr.async_get(hass)
+        device_registry.async_get_or_create(
+            config_entry_id=from_hex_string(self._communicator.base_id),
+            manufacturer="EnOcean",
+            name=self._communicator.version_info['app_description'],
+            model='USB300',
+            sw_version=self._communicator.version_info['api_version'],
+            hw_version=self._communicator.version_info['chip_version'],
+        )
 
     async def async_setup(self):
         """Finish the setup of the bridge and supported platforms."""
@@ -64,7 +76,7 @@ class EnOceanDongle:
             dispatcher_send(self.hass, SIGNAL_RECEIVE_MESSAGE, packet)
 
 
-def detect2():
+def detect():
     """Lists serial port names
 
     :raises EnvironmentError:
@@ -95,7 +107,7 @@ def detect2():
     return result
 
 
-def detect():
+def detect_orig():
     """Return a list of candidate paths for USB ENOcean dongles.
 
     This method is currently a bit simplistic, it may need to be

@@ -4,6 +4,7 @@ from enocean.utils import combine_hex
 
 from homeassistant.helpers.dispatcher import async_dispatcher_connect, dispatcher_send
 from homeassistant.helpers.entity import Entity
+from homeassistant.helpers import device_registry as dr
 
 from .const import SIGNAL_RECEIVE_MESSAGE, SIGNAL_SEND_MESSAGE
 

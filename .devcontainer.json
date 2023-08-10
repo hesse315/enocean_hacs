@@ -1,5 +1,5 @@
 {
-    "name": "ludeeus/integration_blueprint",
+    "name": "hesse315/enocean_hacs",
     "image": "mcr.microsoft.com/vscode/devcontainers/python:0-3.10-bullseye",
     "postCreateCommand": "scripts/setup",
     "forwardPorts": [
@@ -35,16 +35,14 @@
             }
         }
     },
-    "remoteUser": "vscode",
     "features": {
         "ghcr.io/devcontainers/features/rust:1": {}
     },
     "runArgs": [
         "--privileged",
-        "--device",
-        "/dev/ttyUSB0",
-        "--device",
-        "/dev/serial/by-id/usb-EnOcean_GmbH_EnOcean_USB_300_DD_FT6XHPEP-if00-port0"
+        "--device=/dev/ttyUSB0",
+        "--device=/dev/serial/by-id/usb-EnOcean_GmbH_EnOcean_USB_300_DD_FT6XHPEP-if00-port0",
+        "--group-add=dialout"
     ],
     "capAdd": [
         "SYS_PTRACE"

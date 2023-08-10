@@ -31,6 +31,8 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
 from .device import EnOceanEntity
+from .const import CONF_EEP, CONF_DEVICE_TYPE, CONF_MANUFACTURER
+
 
 CONF_MAX_TEMP = "max_temp"
 CONF_MIN_TEMP = "min_temp"
@@ -42,6 +44,7 @@ DEFAULT_NAME = "EnOcean sensor"
 SENSOR_TYPE_HUMIDITY = "humidity"
 SENSOR_TYPE_POWER = "powersensor"
 SENSOR_TYPE_TEMPERATURE = "temperature"
+SENSOR_TYPE_BRIGHTNESS = "brightness"
 SENSOR_TYPE_WINDOWHANDLE = "windowhandle"
 
 
@@ -100,6 +103,9 @@ SENSOR_DESC_WINDOWHANDLE = EnOceanSensorEntityDescription(
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     {
         vol.Required(CONF_ID): vol.All(cv.ensure_list, [vol.Coerce(int)]),
+        vol.Required(CONF_EEP): cv.string,
+        vol.Optional(CONF_MANUFACTURER, default=DEFAULT_MANUFACTURER): cv.string,
+        vol.Optional(CONF_DEVICE_TYPE, default=''): cv.string,
         vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
         vol.Optional(CONF_DEVICE_CLASS, default=SENSOR_TYPE_POWER): cv.string,
         vol.Optional(CONF_MAX_TEMP, default=40): vol.Coerce(int),
